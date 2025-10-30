@@ -3,72 +3,96 @@
 
 import math
 
-def calculate_emi(principal: float, annual_interest_rate: float, tenure_years: int) -> float:
+def calculate_emi(principal: float, annual_interest_rate: float, tenure_in_years: float) -> float:
     """
     Calculates the Equated Monthly Installment (EMI) for a loan.
 
+    The EMI formula used is:
+    EMI = [P * R * (1 + R)^N] / [(1 + R)^N – 1]
+    Where:
+    P = Principal loan amount
+    R = Monthly interest rate (annual_interest_rate / 12 / 100)
+    N = Loan tenure in months (tenure_in_years * 12)
+
     Args:
-        principal (float): The total principal loan amount.
-        annual_interest_rate (float): The annual interest rate as a percentage (e.g., 8.5 for 8.5%).
-        tenure_years (int): The loan tenure in years.
+        principal: The total loan amount. Must be a positive number.
+        annual_interest_rate: The annual interest rate in percentage (e.g., 8.5 for 8.5%). Must be non-negative.
+        tenure_in_years: The loan tenure in years. Must be a positive number.
 
     Returns:
-        float: The calculated monthly EMI.
+        The calculated monthly EMI.
 
     Raises:
-        ValueError: If principal, annual_interest_rate, or tenure_years are invalid.
+        ValueError: If any input is invalid (non-positive principal, negative rate, non-positive tenure).
     """
     if not isinstance(principal, (int, float)) or principal <= 0:
         raise ValueError("Principal must be a positive number.")
     if not isinstance(annual_interest_rate, (int, float)) or annual_interest_rate < 0:
-        raise ValueError("Annual interest rate cannot be negative.")
-    if not isinstance(tenure_years, int) or tenure_years <= 0:
-        raise ValueError("Tenure in years must be a positive integer.")
+        raise ValueError("Annual interest rate must be a non-negative number.")
+    if not isinstance(tenure_in_years, (int, float)) or tenure_in_years <= 0:
+        raise ValueError("Tenure in years must be a positive number.")
 
-    monthly_interest_rate = (annual_interest_rate / 100) / 12
-    tenure_months = tenure_years * 12
+    # Convert annual interest rate percentage to monthly decimal rate
+    # e.g., 8.5% becomes 0.085 annually, then 0.085/12 monthly
+    monthly_interest_rate = annual_interest_rate / (12 * 100)
+    
+    # Convert tenure in years to total number of monthly payments
+    number_of_payments = tenure_in_years * 12
 
     if monthly_interest_rate == 0:
-        # If interest rate is 0, EMI is simply principal / number of months
-        emi = principal / tenure_months
+        # Special case for 0% interest: EMI is simply Principal / N
+        emi = principal / number_of_payments
     else:
-        # EMI formula: P * R * (1 + R)^N / ((1 + R)^N - 1)
-        # Where P = Principal, R = Monthly Interest Rate, N = Tenure in Months
-        power_term = (1 + monthly_interest_rate)**tenure_months
-        numerator = principal * monthly_interest_rate * power_term
-        denominator = power_term - 1
-        
-        # This check should ideally not be hit with valid positive inputs for rate and tenure.
-        if denominator == 0:
-            raise ValueError("Cannot calculate EMI due to an invalid combination of interest rate and tenure.")
-            
+        # Standard EMI formula calculation
+        power_factor = (1 + monthly_interest_rate) ** number_of_payments
+        numerator = principal * monthly_interest_rate * power_factor
+        denominator = power_factor - 1
         emi = numerator / denominator
 
     return emi
 
+def _get_float_input(prompt: str, min_value: float = None, allow_zero: bool = False) -> float:
+    """
+    Helper function to get validated float input from the user.
+    """
+    while True:
+        try:
+            value_str = input(prompt).strip()
+            value = float(value_str)
+            if min_value is not None and value < min_value:
+                print(f"Error: Value must be at least {min_value}.")
+                continue
+            if not allow_zero and value == 0:
+                print("Error: Value cannot be zero. Please enter a positive number.")
+                continue
+            return value
+        except ValueError:
+            print("Error: Invalid input. Please enter a valid number.")
 
 if __name__ == "__main__":
+    print("--- Loan EMI Calculator ---")
+    print("Enter the details below to calculate your monthly EMI.")
+
     try:
-        print("--- Loan EMI Calculator ---")
-        
-        loan_principal_input = input("Enter principal loan amount (e.g., 100000): ")
-        annual_rate_input = input("Enter annual interest rate as a percentage (e.g., 8.5 for 8.5%): ")
-        loan_tenure_years_input = input("Enter loan tenure in years (e.g., 5): ")
+        principal = _get_float_input("Enter the principal loan amount (e.g., 100000): ", min_value=0.01)
+        annual_interest_rate = _get_float_input("Enter the annual interest rate in percentage (e.g., 8.5): ", min_value=0.0, allow_zero=True)
+        tenure_in_years = _get_float_input("Enter the loan tenure in years (e.g., 5 for 5 years): ", min_value=0.01)
 
-        principal = float(loan_principal_input)
-        annual_rate = float(annual_rate_input)
-        tenure_years = int(loan_tenure_years_input)
+        emi_result = calculate_emi(principal, annual_interest_rate, tenure_in_years)
 
-        monthly_emi = calculate_emi(principal, annual_rate, tenure_years)
-        
-        print("\n--- Loan Details ---")
-        print(f"Principal Amount: ${principal:,.2f}")
-        print(f"Annual Interest Rate: {annual_rate:.2f}%")
-        print(f"Loan Tenure: {tenure_years} years")
         print("\n--- Calculation Result ---")
-        print(f"Your Monthly EMI will be: ${monthly_emi:,.2f}")
+        print(f"Principal Loan Amount: {principal:,.2f}")
+        print(f"Annual Interest Rate: {annual_interest_rate:.2f}%")
+        print(f"Loan Tenure: {tenure_in_years:.0f} years ({int(tenure_in_years * 12)} months)")
+        print(f"Your Monthly EMI: {emi_result:,.2f}")
 
     except ValueError as e:
-        print(f"Input Error: {e}. Please ensure you enter valid numerical data.")
+        print(f"\nAn error occurred: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"\nAn unexpected error occurred: {e}")
+    finally:
+        # AC2: Application should delete the customer data after customer close the application
+        # For a command-line script, user input data is stored only in temporary variables
+        # in memory. It is automatically discarded when the script finishes execution,
+        # ensuring no persistence of customer data.
+        print("\nThank you for using the EMI Calculator. Your data has not been stored.")
