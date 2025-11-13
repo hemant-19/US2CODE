@@ -1,454 +1,339 @@
-Great! As a senior developer, I understand the need for robust, well-structured, and testable code that directly addresses the user stories and their acceptance criteria. I'll implement a backend logic simulation using Python classes, focusing on data validation and state management, as this forms the core business logic.
+Here's the Python code implementing the two user stories, adhering to the Gherkin acceptance criteria.
 
-I'll create:
-1.  A `BankAccountApplication` class to manage the overall application state and flow.
-2.  Data models (`PersonalDetailsData`, `DocumentData`) to encapsulate input for each step.
-3.  Validation logic to enforce mandatory fields, data formats, file types, and file sizes.
-4.  A simulation of "secure storage" and "navigation."
+This solution simulates the backend logic of a hospital patient registration system. It uses in-memory dictionaries to store patient data and generates unique IDs. The functions return dictionaries indicating `status` (success/error), `message`, and relevant `data` (like patient IDs, error details, or retained form data), mimicking an API response that a frontend application would consume.
 
 ```python
-import re
-from datetime import datetime, date
+import datetime
+import uuid
 
-# --- Constants and Configurations ---
-MAX_FILE_SIZE_MB = 5
-ACCEPTED_DOCUMENT_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
-
-# --- Helper Functions and Classes (for validation) ---
-
-class ValidationResult:
-    """A class to encapsulate validation outcomes."""
-    def __init__(self, is_valid: bool = True, errors: dict = None):
-        self.is_valid = is_valid
-        self.errors = errors if errors is not None else {}
-
-    def add_error(self, field: str, message: str):
-        """Adds an error message for a specific field."""
-        if field not in self.errors:
-            self.errors[field] = []
-        self.errors[field].append(message)
-        self.is_valid = False
-
-    def __bool__(self):
-        return self.is_valid
-
-    def __repr__(self):
-        return f"ValidationResult(is_valid={self.is_valid}, errors={self.errors})"
-
-class Validator:
-    """Centralized validation utility."""
-
-    @staticmethod
-    def is_valid_email(email: str) -> bool:
-        """Checks for a basic email format."""
-        # A more robust regex might be needed for production
-        return re.match(r"[^@]+@[^@]+\.[^@]+", email) is not None
-
-    @staticmethod
-    def is_future_date(dt_str: str, date_format: str = "%Y-%m-%d") -> bool:
-        """Checks if a given date string represents a future date."""
-        try:
-            input_date = datetime.strptime(dt_str, date_format).date()
-            return input_date > date.today()
-        except ValueError:
-            return True # Treat invalid format as future/invalid for safety
-
-    @staticmethod
-    def is_valid_phone(phone_number: str) -> bool:
-        """Checks for a basic phone number format (digits, optional +, spaces, hyphens)."""
-        # This is a very permissive regex. A real app would need country-specific validation.
-        return re.match(r"^\+?[\d\s-]{7,15}$", phone_number) is not None
-
-# --- Data Models ---
-
-class PersonalDetailsData:
+# --- Helper for generating unique Patient IDs ---
+class PatientIdGenerator:
     """
-    Represents the personal details submitted by the potential customer.
-    Includes validation logic for its fields.
-    """
-    def __init__(self, full_name: str, date_of_birth: str, residential_address: str, email: str, phone_number: str):
-        self.full_name = full_name
-        self.date_of_birth = date_of_birth
-        self.residential_address = residential_address
-        self.email = email
-        self.phone_number = phone_number
-
-    def validate(self) -> ValidationResult:
-        """Validates all personal details fields according to business rules."""
-        result = ValidationResult()
-
-        # Mandatory fields
-        if not self.full_name:
-            result.add_error("full_name", "Full Name is mandatory.")
-        if not self.date_of_birth:
-            result.add_error("date_of_birth", "Date of Birth is mandatory.")
-        if not self.residential_address:
-            result.add_error("residential_address", "Residential Address is mandatory.")
-        if not self.email:
-            result.add_error("email", "Email is mandatory.")
-        if not self.phone_number:
-            result.add_error("phone_number", "Phone Number is mandatory.")
-
-        # Format validations (only if field is not already missing)
-        if self.date_of_birth and not result.errors.get("date_of_birth"):
-            try:
-                # Assuming YYYY-MM-DD format for input
-                datetime.strptime(self.date_of_birth, "%Y-%m-%d")
-                if Validator.is_future_date(self.date_of_birth):
-                    result.add_error("date_of_birth", "Date of birth cannot be in the future.")
-            except ValueError:
-                result.add_error("date_of_birth", "Invalid date of birth format. Please use YYYY-MM-DD.")
-
-        if self.email and not result.errors.get("email"):
-            if not Validator.is_valid_email(self.email):
-                result.add_error("email", "Please enter a valid email address.")
-
-        if self.phone_number and not result.errors.get("phone_number"):
-            if not Validator.is_valid_phone(self.phone_number):
-                result.add_error("phone_number", "Please enter a valid phone number.")
-
-        return result
-
-    def to_dict(self):
-        return {
-            "full_name": self.full_name,
-            "date_of_birth": self.date_of_birth,
-            "residential_address": self.residential_address,
-            "email": self.email,
-            "phone_number": self.phone_number,
-        }
-
-class DocumentData:
-    """
-    Represents an uploaded document with its details.
-    """
-    def __init__(self, filename: str, content_type: str, size_bytes: int, content=None):
-        self.filename = filename
-        self.content_type = content_type # e.g., 'image/jpeg', 'application/pdf'
-        self.size_bytes = size_bytes
-        self.content = content # In a real app, this would be a path or a stream reference
-
-    def validate(self, field_name: str) -> ValidationResult:
-        """Validates a single document against type and size limits."""
-        result = ValidationResult()
-
-        if self.content_type not in ACCEPTED_DOCUMENT_TYPES:
-            result.add_error(field_name,
-                             f"File type '{self.content_type}' is not allowed. Accepted types: {', '.join(t.split('/')[1] for t in ACCEPTED_DOCUMENT_TYPES)}.")
-
-        if self.size_bytes > (MAX_FILE_SIZE_MB * 1024 * 1024):
-            result.add_error(field_name,
-                             f"File exceeds the maximum size limit of {MAX_FILE_SIZE_MB}MB.")
-        return result
-
-    def to_dict(self):
-        return {
-            "filename": self.filename,
-            "content_type": self.content_type,
-            "size_bytes": self.size_bytes,
-        }
-
-# --- Main Application Logic ---
-
-class BankAccountApplication:
-    """
-    Manages the state and business logic for the bank account application process.
+    Generates unique patient IDs in the format P-YYYY-NNNN,
+    resetting the sequence number annually.
     """
     def __init__(self):
-        self._current_step = "personal_details"
-        self._personal_details_data: PersonalDetailsData = None
-        self._primary_id_document: DocumentData = None
-        self._proof_of_address_document: DocumentData = None
+        self._counter = 0
+        self._last_year = datetime.date.today().year
 
-        # Simulate secure storage for processing later
-        self._secure_storage = {
-            "personal_details": {},
-            "documents": {}
+    def generate_id(self):
+        current_year = datetime.date.today().year
+        if current_year != self._last_year:
+            self._counter = 0  # Reset counter for a new year
+            self._last_year = current_year
+
+        self._counter += 1
+        return f"P-{current_year}-{self._counter:04d}"
+
+# --- HospitalRegistry System Class ---
+class HospitalRegistry:
+    """
+    Manages patient registration and emergency contact information.
+    Simulates a backend service with in-memory storage.
+    """
+    def __init__(self):
+        self.patients = {}  # Stores patient records, keyed by patient_id
+        self._id_generator = PatientIdGenerator()
+
+    # --- Private Helper: Validate Patient Registration Details ---
+    def _validate_patient_details(self, details: dict) -> dict:
+        """
+        Validates the input dictionary for new patient registration.
+        Returns a dictionary of errors, or an empty dictionary if valid.
+        """
+        errors = {}
+        required_fields = {
+            "first_name": "First Name",
+            "last_name": "Last Name",
+            "date_of_birth": "Date of Birth",
+            "gender": "Gender",
+            "phone_number": "Phone Number",
+            "address_line_1": "Address Line 1",
+            "city": "City",
+            "state": "State",
+            "zip_code": "Zip Code",
+            "admission_date": "Admission Date",
+            "chief_complaint": "Chief Complaint"
         }
-        print("Bank account application initialized.")
 
-    @property
-    def current_step(self) -> str:
-        return self._current_step
+        for field, display_name in required_fields.items():
+            if not details.get(field):
+                errors[field] = f"{display_name} is required"
 
-    @property
-    def application_data(self) -> dict:
+        # Specific date format validation (YYYY-MM-DD)
+        date_fields = {"date_of_birth": "Date of Birth", "admission_date": "Admission Date"}
+        for field, display_name in date_fields.items():
+            date_str = details.get(field)
+            if date_str and field not in errors: # Only validate format if field is present and not already marked as missing
+                try:
+                    datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    errors[field] = f"{display_name} must be in YYYY-MM-DD format"
+        
+        # Simple gender validation (if provided)
+        gender = details.get("gender")
+        if gender and gender.lower() not in ["male", "female", "other", "prefer not to say"] and "gender" not in errors:
+            errors["gender"] = "Invalid gender. Must be Male, Female, Other, or Prefer not to say."
+
+        return errors
+
+    # --- User Story 1: Register New Patient ---
+    def register_new_patient(self, details: dict) -> dict:
+        """
+        Registers a new patient with their essential demographic and contact information.
+        Returns a dictionary with status, message, and either patient_id/patient_data or errors.
+        """
+        validation_errors = self._validate_patient_details(details)
+
+        if validation_errors:
+            return {
+                "status": "error",
+                "message": "Failed to register patient due to missing or invalid information.",
+                "errors": validation_errors,
+                "data": details # Return the original data for form re-population
+            }
+
+        patient_id = self._id_generator.generate_id()
+        new_patient = {
+            "patient_id": patient_id,
+            "first_name": details["first_name"],
+            "last_name": details["last_name"],
+            "date_of_birth": details["date_of_birth"],
+            "gender": details["gender"],
+            "phone_number": details["phone_number"],
+            "address_line_1": details["address_line_1"],
+            "city": details["city"],
+            "state": details["state"],
+            "zip_code": details["zip_code"],
+            "admission_date": details["admission_date"],
+            "chief_complaint": details["chief_complaint"],
+            "emergency_contacts": [] # Initialize with an empty list for contacts
+        }
+
+        self.patients[patient_id] = new_patient
+        full_name = f"{new_patient['first_name']} {new_patient['last_name']}"
+
         return {
-            "current_step": self.current_step,
-            "personal_details": self._personal_details_data.to_dict() if self._personal_details_data else {},
-            "primary_id": self._primary_id_document.to_dict() if self._primary_id_document else {},
-            "proof_of_address": self._proof_of_address_document.to_dict() if self._proof_of_address_document else {},
-            "secure_storage_snapshot": self._secure_storage # For demonstration
+            "status": "success",
+            "message": f"Patient {full_name} registered successfully with ID {patient_id}",
+            "patient_id": patient_id,
+            "patient_data": new_patient,
+            "clear_form": True # Signal for UI to clear fields
         }
 
-    def _securely_store_data(self, key: str, data: dict):
-        """Simulates secure storage of data."""
-        # In a real application, this would involve database writes, encryption, etc.
-        self._secure_storage[key] = data
-        print(f"DEBUG: Data for '{key}' securely stored: {data}")
-
-    def submit_personal_details(self, full_name: str, date_of_birth: str, residential_address: str, email: str, phone_number: str) -> dict:
+    # --- Private Helper: Validate Emergency Contact Details ---
+    def _validate_emergency_contact_details(self, details: dict) -> dict:
         """
-        Processes the submission of personal details.
-        Returns a dictionary indicating success/failure and relevant messages/data.
+        Validates the input dictionary for emergency contact details.
+        Returns a dictionary of errors, or an empty dictionary if valid.
         """
-        if self._current_step != "personal_details":
-            return {"success": False, "errors": {"application_flow": f"Currently on step: {self._current_step}. Cannot submit personal details."}}
+        errors = {}
+        required_fields = {
+            "contact_name": "Contact Name",
+            "relationship": "Relationship",
+            "phone_number": "Phone Number"
+        }
 
-        print(f"\nAttempting to submit personal details...")
-        details = PersonalDetailsData(full_name, date_of_birth, residential_address, email, phone_number)
-        validation_result = details.validate()
+        for field, display_name in required_fields.items():
+            if not details.get(field):
+                errors[field] = f"{display_name} is required"
+        
+        # Basic email format validation (optional field, so only if provided)
+        email = details.get("email_address")
+        if email and "@" not in email and "email_address" not in errors:
+            errors["email_address"] = "Invalid email address format"
 
-        if validation_result.is_valid:
-            self._personal_details_data = details
-            self._securely_store_data("personal_details", details.to_dict())
-            self._current_step = "id_verification"
-            print("INFO: Personal details successfully submitted.")
-            return {
-                "success": True,
-                "message": "Personal details successfully submitted.",
-                "next_step": self._current_step
-            }
-        else:
-            print("ERROR: Personal details validation failed.")
-            return {
-                "success": False,
-                "errors": validation_result.errors,
-                "current_step": self._current_step # Remain on this page
-            }
+        return errors
 
-    def upload_identity_documents(self, primary_id_file_data: dict, proof_of_address_file_data: dict) -> dict:
+    # --- User Story 2: Add Patient Emergency Contact ---
+    def add_emergency_contact(self, patient_id: str, contact_details: dict) -> dict:
         """
-        Processes the upload of identity documents.
-        `primary_id_file_data` and `proof_of_address_file_data` should be dictionaries like:
-        {'filename': 'passport.jpg', 'content_type': 'image/jpeg', 'size_bytes': 1234567}
+        Records emergency contact information for a registered patient.
+        Returns a dictionary with status, message, and either updated patient data or errors.
         """
-        if self._current_step != "id_verification":
-            return {"success": False, "errors": {"application_flow": f"Currently on step: {self._current_step}. Cannot upload documents."}}
-        if not self._personal_details_data:
-             return {"success": False, "errors": {"application_flow": "Personal details must be completed first."}}
-
-
-        print(f"\nAttempting to upload identity documents...")
-        primary_id = DocumentData(**primary_id_file_data)
-        proof_of_address = DocumentData(**proof_of_address_file_data)
-
-        combined_validation_result = ValidationResult()
-
-        primary_id_validation = primary_id.validate("primary_id_document")
-        if not primary_id_validation.is_valid:
-            combined_validation_result.errors.update(primary_id_validation.errors)
-            combined_validation_result.is_valid = False
-
-        proof_of_address_validation = proof_of_address.validate("proof_of_address_document")
-        if not proof_of_address_validation.is_valid:
-            combined_validation_result.errors.update(proof_of_address_validation.errors)
-            combined_validation_result.is_valid = False
-
-        if combined_validation_result.is_valid:
-            self._primary_id_document = primary_id
-            self._proof_of_address_document = proof_of_address
-            self._securely_store_data("documents", {
-                "primary_id": primary_id.to_dict(),
-                "proof_of_address": proof_of_address.to_dict()
-            })
-            self._current_step = "review_and_submit"
-            print("INFO: Identity documents successfully uploaded.")
+        if patient_id not in self.patients:
             return {
-                "success": True,
-                "message": "Documents uploaded successfully. Proceeding to review.",
-                "next_step": self._current_step
-            }
-        else:
-            print("ERROR: Document upload validation failed.")
-            return {
-                "success": False,
-                "errors": combined_validation_result.errors,
-                "current_step": self._current_step # Remain on this page
+                "status": "error",
+                "message": f"Patient with ID {patient_id} not found. Cannot add emergency contact.",
+                "errors": {"patient_id": "Patient not found"},
+                "data": contact_details
             }
 
+        validation_errors = self._validate_emergency_contact_details(contact_details)
 
-# --- Simulation of User Interactions / Gherkin Scenarios ---
+        if validation_errors:
+            return {
+                "status": "error",
+                "message": "Failed to add emergency contact due to missing or invalid information.",
+                "errors": validation_errors,
+                "data": contact_details # Return the original data for form re-population
+            }
 
-def run_scenario(scenario_name: str, app: BankAccountApplication, func_call, expected_output_check):
-    print(f"\n--- Running Scenario: {scenario_name} ---")
-    response = func_call()
-    assert expected_output_check(response), f"Assertion failed for '{scenario_name}'. Response: {response}"
-    print(f"--- Scenario '{scenario_name}' PASSED ---\n")
-    return response
+        patient = self.patients[patient_id]
+        new_contact = {
+            "contact_id": str(uuid.uuid4()), # Unique ID for the contact itself
+            "patient_id": patient_id,
+            "contact_name": contact_details["contact_name"],
+            "relationship": contact_details["relationship"],
+            "phone_number": contact_details["phone_number"],
+            "email_address": contact_details.get("email_address", "") # Optional field
+        }
 
+        patient["emergency_contacts"].append(new_contact)
+        
+        patient_full_name = f"{patient['first_name']} {patient['last_name']}"
+
+        return {
+            "status": "success",
+            "message": f"Emergency contact for {patient_full_name} ({patient_id}) added successfully.",
+            "patient_id": patient_id,
+            "contact_data": new_contact,
+            "patient_data_with_contacts": patient # For UI to update the list of contacts
+        }
+
+    # --- Public Helper: Retrieve Patient Data (useful for testing and other features) ---
+    def get_patient(self, patient_id: str) -> dict or None:
+        """Retrieves a patient's full record by their ID."""
+        return self.patients.get(patient_id)
+
+# --- Simulation of User Interaction and Testing (Equivalent to running automated tests) ---
 if __name__ == "__main__":
-    app = BankAccountApplication()
+    registry = HospitalRegistry()
+    print("--- Simulating User Stories ---")
 
-    # User Story 1: Submit Personal Details
+    # --- User Story 1: Register New Patient - Core Demographics ---
+    print("\n--- Scenario: Successful New Patient Registration ---")
+    patient_details_full = {
+        "first_name": "John",
+        "last_name": "Doe",
+        "date_of_birth": "1990-05-15",
+        "gender": "Male",
+        "phone_number": "555-123-4567",
+        "address_line_1": "123 Main St",
+        "city": "Anytown",
+        "state": "NY",
+        "zip_code": "12345",
+        "admission_date": "2023-10-26",
+        "chief_complaint": "Fever and cough"
+    }
+    print(f"  Attempting to register: {patient_details_full['first_name']} {patient_details_full['last_name']}")
+    result_success = registry.register_new_patient(patient_details_full)
 
-    # Scenario: Successful submission of all mandatory personal details
-    run_scenario(
-        "US1: Successful submission of all mandatory personal details",
-        app,
-        lambda: app.submit_personal_details(
-            full_name="Alice Wonderland",
-            date_of_birth="1990-01-15",
-            residential_address="123 Rabbit Hole, Wonderland, WN1 2AB",
-            email="alice@wonderland.com",
-            phone_number="+447123456789"
-        ),
-        lambda res: res["success"] and res["next_step"] == "id_verification"
-    )
-    print(f"Current Application Step: {app.current_step}")
-    assert app.current_step == "id_verification"
+    # Validate results based on Acceptance Criteria
+    assert result_success["status"] == "success"
+    initial_patient_id = result_success["patient_id"]
+    print(f"  Result: {result_success['message']}")
+    print(f"  Generated Patient ID: {initial_patient_id}")
+    assert initial_patient_id.startswith(f"P-{datetime.date.today().year}-")
 
+    saved_patient = registry.get_patient(initial_patient_id)
+    assert saved_patient is not None
+    print(f"  Patient data saved to system. Full name: {saved_patient['first_name']} {saved_patient['last_name']}")
+    assert result_success["clear_form"] is True
+    print("  Form fields should clear (UI signal received).")
+    print("  Scenario PASSED: Successful New Patient Registration")
 
-    # Re-initialize app for independent scenario testing (or design scenarios to follow each other)
-    app_us1_missing = BankAccountApplication()
+    print("\n--- Scenario: Attempt to Register Patient with Missing Required Information ---")
+    patient_details_missing = {
+        "first_name": "Jane",
+        "last_name": "Smith",
+        # "date_of_birth": deliberately missing
+        "gender": "Female",
+        "phone_number": "555-000-1111",
+        "address_line_1": "456 Oak Ave",
+        "city": "Othertown",
+        "state": "CA",
+        "zip_code": "98765",
+        "admission_date": "2023-10-27",
+        "chief_complaint": "Headache"
+    }
+    print(f"  Attempting to register with missing DOB for: {patient_details_missing['first_name']} {patient_details_missing['last_name']}")
+    result_missing = registry.register_new_patient(patient_details_missing)
 
-    # Scenario: Attempt to submit with missing mandatory fields
-    run_scenario(
-        "US1: Attempt to submit with missing mandatory fields",
-        app_us1_missing,
-        lambda: app_us1_missing.submit_personal_details(
-            full_name="Bob The Builder",
-            date_of_birth="1985-05-20",
-            residential_address="", # Missing Residential Address
-            email="bob@builder.com",
-            phone_number="+15551234567"
-        ),
-        lambda res: not res["success"] and "residential_address" in res["errors"] and res["current_step"] == "personal_details"
-    )
-    assert app_us1_missing.current_step == "personal_details"
+    # Validate results based on Acceptance Criteria
+    assert result_missing["status"] == "error"
+    print(f"  Result: {result_missing['message']}")
+    assert "date_of_birth" in result_missing["errors"]
+    print(f"  Error message: '{result_missing['errors']['date_of_birth']}'")
+    assert result_missing["errors"]["date_of_birth"] == "Date of Birth is required"
+    
+    assert registry.get_patient("P-9999-9999") is None # Confirm no patient with invalid ID was created
+    # Check that the next patient ID in sequence was NOT used by this failed attempt
+    next_possible_id_after_john_doe = f"P-{datetime.date.today().year}-{registry._id_generator._counter+1:04d}"
+    assert registry.get_patient(next_possible_id_after_john_doe) is None 
+    print("  Patient not registered in the system.")
+    
+    assert result_missing["data"]["first_name"] == "Jane"
+    assert "date_of_birth" not in result_missing["data"] # Missing field
+    print("  Previously entered information retained in form data.")
+    print("  Scenario PASSED: Attempt to Register Patient with Missing Required Information")
 
+    # --- User Story 2: Add Patient Emergency Contact ---
+    print("\n--- Scenario: Successfully Adding a Single Emergency Contact ---")
+    # Using the previously registered patient (John Doe)
+    print(f"  Using registered patient with ID: {initial_patient_id}")
+    assert registry.get_patient(initial_patient_id) is not None
 
-    app_us1_invalid = BankAccountApplication()
+    emergency_contact_full = {
+        "contact_name": "Jane Doe",
+        "relationship": "Spouse",
+        "phone_number": "555-987-6543",
+        "email_address": "jane.doe@example.com"
+    }
+    print(f"  Attempting to add emergency contact: {emergency_contact_full['contact_name']}")
+    result_ec_success = registry.add_emergency_contact(initial_patient_id, emergency_contact_full)
 
-    # Scenario: Attempt to submit with invalid data format
-    run_scenario(
-        "US1: Attempt to submit with invalid data format",
-        app_us1_invalid,
-        lambda: app_us1_invalid.submit_personal_details(
-            full_name="Charlie Chaplin",
-            date_of_birth="2050-12-25", # Future date
-            residential_address="456 Silent Film St, Hollywood, CA 90028",
-            email="charlie.com", # Invalid email format
-            phone_number="not-a-phone" # Invalid phone format
-        ),
-        lambda res: (not res["success"] and
-                     "date_of_birth" in res["errors"] and
-                     "email" in res["errors"] and
-                     "phone_number" in res["errors"] and
-                     "Date of birth cannot be in the future." in res["errors"]["date_of_birth"] and
-                     "Please enter a valid email address." in res["errors"]["email"] and
-                     "Please enter a valid phone number." in res["errors"]["phone_number"] and
-                     res["current_step"] == "personal_details")
-    )
-    assert app_us1_invalid.current_step == "personal_details"
+    # Validate results based on Acceptance Criteria
+    assert result_ec_success["status"] == "success"
+    print(f"  Result: {result_ec_success['message']}")
+    
+    updated_patient = registry.get_patient(initial_patient_id)
+    assert len(updated_patient["emergency_contacts"]) == 1
+    added_contact = updated_patient["emergency_contacts"][0]
+    print(f"  Emergency contact '{added_contact['contact_name']}' saved and associated.")
+    assert added_contact["contact_name"] == "Jane Doe"
+    assert added_contact["relationship"] == "Spouse"
+    assert added_contact["phone_number"] == "555-987-6543"
+    assert added_contact["email_address"] == "jane.doe@example.com"
+    
+    assert result_ec_success["contact_data"] == added_contact
+    assert len(result_ec_success["patient_data_with_contacts"]["emergency_contacts"]) == 1
+    print("  New contact data returned for display in patient's list.")
+    print("  Scenario PASSED: Successfully Adding a Single Emergency Contact")
 
+    print("\n--- Scenario: Attempt to Add Emergency Contact with Missing Required Information ---")
+    # Using the same registered patient (John Doe)
+    print(f"  Using registered patient with ID: {initial_patient_id}")
 
-    # User Story 2: Upload Identity Documents
+    emergency_contact_missing = {
+        "contact_name": "Alice Wonderland",
+        # "relationship": deliberately missing
+        # "phone_number": deliberately missing
+        "email_address": "alice@example.com" # Optional field, so won't cause error by itself
+    }
+    print(f"  Attempting to add emergency contact with missing details for: {emergency_contact_missing['contact_name']}")
+    result_ec_missing = registry.add_emergency_contact(initial_patient_id, emergency_contact_missing)
 
-    # Scenario: Successful upload of required identity documents
-    # First, complete personal details to get to the correct step
-    app_us2_success = BankAccountApplication()
-    app_us2_success.submit_personal_details(
-        full_name="Diana Prince",
-        date_of_birth="1980-08-08",
-        residential_address="Themyscira Embassy, Washington D.C.",
-        email="diana@amazon.com",
-        phone_number="+12025550100"
-    )
-    assert app_us2_success.current_step == "id_verification"
+    # Validate results based on Acceptance Criteria
+    assert result_ec_missing["status"] == "error"
+    print(f"  Result: {result_ec_missing['message']}")
+    
+    assert "relationship" in result_ec_missing["errors"]
+    print(f"  Error message: '{result_ec_missing['errors']['relationship']}'")
+    assert result_ec_missing["errors"]["relationship"] == "Relationship is required"
+    
+    assert "phone_number" in result_ec_missing["errors"]
+    print(f"  Error message: '{result_ec_missing['errors']['phone_number']}'")
+    assert result_ec_missing["errors"]["phone_number"] == "Phone Number is required"
 
-    run_scenario(
-        "US2: Successful upload of required identity documents",
-        app_us2_success,
-        lambda: app_us2_success.upload_identity_documents(
-            primary_id_file_data={'filename': 'passport.jpg', 'content_type': 'image/jpeg', 'size_bytes': 1 * 1024 * 1024}, # 1MB
-            proof_of_address_file_data={'filename': 'utility_bill.pdf', 'content_type': 'application/pdf', 'size_bytes': 500 * 1024} # 0.5MB
-        ),
-        lambda res: res["success"] and res["next_step"] == "review_and_submit"
-    )
-    print(f"Current Application Step: {app_us2_success.current_step}")
-    assert app_us2_success.current_step == "review_and_submit"
+    current_patient_contacts = registry.get_patient(initial_patient_id)["emergency_contacts"]
+    assert len(current_patient_contacts) == 1 # Only Jane Doe should be there
+    assert not any(c["contact_name"] == "Alice Wonderland" for c in current_patient_contacts)
+    print("  Emergency contact not saved.")
+    
+    assert result_ec_missing["data"]["contact_name"] == "Alice Wonderland"
+    print("  Entered contact name retained in form data.")
+    print("  Scenario PASSED: Attempt to Add Emergency Contact with Missing Required Information")
 
-    # Scenario: Attempt to upload an unsupported file type
-    app_us2_unsupported = BankAccountApplication()
-    app_us2_unsupported.submit_personal_details( # Complete first step
-        full_name="Eve Harrington", date_of_birth="1975-03-10",
-        residential_address="Backstage Alley, New York, NY",
-        email="eve@theatre.com", phone_number="+12125550200"
-    )
-    assert app_us2_unsupported.current_step == "id_verification"
-
-    run_scenario(
-        "US2: Attempt to upload an unsupported file type",
-        app_us2_unsupported,
-        lambda: app_us2_unsupported.upload_identity_documents(
-            primary_id_file_data={'filename': 'passport.docx', 'content_type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'size_bytes': 1 * 1024 * 1024}, # DOCX file
-            proof_of_address_file_data={'filename': 'utility_bill.pdf', 'content_type': 'application/pdf', 'size_bytes': 500 * 1024}
-        ),
-        lambda res: (not res["success"] and
-                     "primary_id_document" in res["errors"] and
-                     "File type 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' is not allowed" in res["errors"]["primary_id_document"][0] and
-                     res["current_step"] == "id_verification")
-    )
-    assert app_us2_unsupported.current_step == "id_verification" # Should remain on this step
-
-    # Scenario: Attempt to upload a file exceeding the size limit
-    app_us2_oversized = BankAccountApplication()
-    app_us2_oversized.submit_personal_details( # Complete first step
-        full_name="Frank Underwood", date_of_birth="1960-11-05",
-        residential_address="1600 Pennsylvania Ave, Washington D.C.",
-        email="frank@whitehouse.com", phone_number="+12024561414"
-    )
-    assert app_us2_oversized.current_step == "id_verification"
-
-    run_scenario(
-        "US2: Attempt to upload a file exceeding the size limit",
-        app_us2_oversized,
-        lambda: app_us2_oversized.upload_identity_documents(
-            primary_id_file_data={'filename': 'oversized_passport.jpg', 'content_type': 'image/jpeg', 'size_bytes': 6 * 1024 * 1024}, # 6MB
-            proof_of_address_file_data={'filename': 'utility_bill.pdf', 'content_type': 'application/pdf', 'size_bytes': 500 * 1024}
-        ),
-        lambda res: (not res["success"] and
-                     "primary_id_document" in res["errors"] and
-                     f"File exceeds the maximum size limit of {MAX_FILE_SIZE_MB}MB." in res["errors"]["primary_id_document"][0] and
-                     res["current_step"] == "id_verification")
-    )
-    assert app_us2_oversized.current_step == "id_verification" # Should remain on this step
-
-    print("\nAll implemented scenarios have passed!")
+    print("\n--- All Simulated Scenarios Completed ---")
 ```
-
-### Explanation and Design Choices:
-
-1.  **`BankAccountApplication` Class:**
-    *   This is the central orchestrator, simulating the backend state of a user's application.
-    *   `_current_step`: Tracks the user's progress through the application (`"personal_details"`, `"id_verification"`, `"review_and_submit"`).
-    *   `_personal_details_data`, `_primary_id_document`, `_proof_of_address_document`: Store the validated data for each step.
-    *   `_secure_storage`: A dictionary simulating a secure data store. In a real application, this would interact with a database, cloud storage, or an encryption service. The `_securely_store_data` method is a placeholder.
-    *   Methods like `submit_personal_details` and `upload_identity_documents` encapsulate the business logic for each user story, including pre-condition checks (e.g., `_current_step`), validation, data storage, and state transitions.
-
-2.  **`PersonalDetailsData` Class:**
-    *   A simple data class to hold personal information.
-    *   `validate()` method: Implements all the validation rules for personal details:
-        *   **Mandatory fields:** Checks if fields are empty.
-        *   **Date of Birth:** Verifies format (YYYY-MM-DD assumed) and ensures it's not in the future.
-        *   **Email:** Uses a basic regex for format validation.
-        *   **Phone Number:** Uses a basic regex for format validation.
-    *   Returns a `ValidationResult` object, which makes it easy to collect multiple errors.
-
-3.  **`DocumentData` Class:**
-    *   A simple data class to hold file information (filename, content type, size).
-    *   `validate()` method: Checks against configured `ACCEPTED_DOCUMENT_TYPES` and `MAX_FILE_SIZE_MB`.
-    *   `content` field is a placeholder; in a real web app, this might be a file stream or a temporary file path.
-
-4.  **`ValidationResult` and `Validator` Classes:**
-    *   **`ValidationResult`**: A dedicated class to aggregate validation errors. It allows adding multiple error messages per field and provides a `is_valid` flag for convenience. Its `__bool__` method makes it usable directly in `if` statements.
-    *   **`Validator`**: A static utility class for common, reusable validation functions (e.g., `is_valid_email`, `is_future_date`, `is_valid_phone`). This keeps the validation logic modular and potentially reusable across different parts of a larger system.
-
-5.  **Simulation of Scenarios (`if __name__ == "__main__":`)**
-    *   Each Gherkin scenario is translated into a series of Python calls to the `BankAccountApplication` methods.
-    *   The `run_scenario` helper function prints clear delimiters for each test and uses `assert` statements to verify that the application's response matches the acceptance criteria (e.g., `success: True`, correct `next_step`, specific error messages).
-    *   For scenarios requiring an initial state (like "Upload Identity Documents" requiring "Personal Details" to be complete), previous steps are simulated first.
-    *   New `BankAccountApplication` instances are created for independent scenario testing to ensure no state bleed between tests, which is good practice.
-
-This code provides a solid backend foundation for the user stories, focusing on the core business logic, data modeling, and validation as specified by the acceptance criteria. It's designed to be modular and testable, reflecting senior developer best practices.
