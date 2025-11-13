@@ -1,71 +1,76 @@
-Great! As a Product Owner, I'll focus on delivering value to our potential customers and the business. Here are two Agile user stories for an application to open a bank account, complete with Gherkin acceptance criteria:
+Great! As a Product Owner for a hospital patient registration application, here are two Agile user stories with Gherkin acceptance criteria. I'll focus on core functionalities for a new patient.
 
 ---
 
-### User Story 1: Submit Personal Details
+### User Story 1: Register New Patient - Core Demographics
 
 **User Story:**
-As a potential customer,
-I want to securely submit my personal details (e.g., name, address, date of birth, contact details),
-so that the bank can identify me and begin processing my new account application.
+As a **Hospital Registrar**,
+I want to **register a new patient with their essential demographic and contact information**,
+so that **their basic profile is securely recorded for initial care planning and hospital administration.**
 
 **Acceptance Criteria (Gherkin):**
 
-**Scenario: Successful submission of all mandatory personal details**
-Given I am on the personal details section of the account application
-And all mandatory fields (e.g., Full Name, Date of Birth, Residential Address, Email, Phone Number) are clearly marked
-When I enter valid information into all mandatory fields
-And I click the "Continue" button
-Then I should be navigated to the next step of the application process (e.g., ID verification)
-And my entered personal data should be securely stored for processing.
+**Scenario: Successful New Patient Registration**
+*Given* I am on the "New Patient Registration" screen
+*And* I have entered all required patient details:
+    *   "First Name" as "John"
+    *   "Last Name" as "Doe"
+    *   "Date of Birth" as "1990-05-15"
+    *   "Gender" as "Male"
+    *   "Phone Number" as "555-123-4567"
+    *   "Address Line 1" as "123 Main St"
+    *   "City" as "Anytown"
+    *   "State" as "NY"
+    *   "Zip Code" as "12345"
+    *   "Admission Date" as "2023-10-26"
+    *   "Chief Complaint" as "Fever and cough"
+*When* I click the "Register Patient" button
+*Then* A unique "Patient ID" should be generated (e.g., "P-2023-0001")
+*And* The patient's full demographic and admission information should be saved to the system
+*And* I should see a confirmation message "Patient John Doe registered successfully with ID P-2023-0001"
+*And* The form fields should clear, ready for the next patient registration.
 
-**Scenario: Attempt to submit with missing mandatory fields**
-Given I am on the personal details section of the account application
-And I have intentionally left a mandatory field (e.g., Residential Address) blank
-When I click the "Continue" button
-Then I should see an inline error message indicating which fields are missing
-And I should remain on the personal details page to correct the errors.
-
-**Scenario: Attempt to submit with invalid data format**
-Given I am on the personal details section of the account application
-When I enter an invalid date of birth (e.g., a future date)
-And I enter an invalid email format (e.g., "myemail.com" without "@")
-And I click the "Continue" button
-Then I should see specific inline error messages for each invalid field (e.g., "Date of birth cannot be in the future", "Please enter a valid email address")
-And I should remain on the personal details page to correct the errors.
+**Scenario: Attempt to Register Patient with Missing Required Information**
+*Given* I am on the "New Patient Registration" screen
+*And* I have entered some, but not all, required patient details (e.g., "First Name", "Last Name", "Phone Number")
+*And* I have intentionally left a required field blank (e.g., "Date of Birth")
+*When* I click the "Register Patient" button
+*Then* An error message "Date of Birth is required" should be displayed next to the missing field
+*And* The patient should not be registered in the system
+*And* All previously entered information should remain in the form fields.
 
 ---
 
-### User Story 2: Upload Identity Documents
+### User Story 2: Add Patient Emergency Contact
 
 **User Story:**
-As a potential customer,
-I want to securely upload copies of my identity documents (e.g., driver's license, passport, utility bill),
-so that the bank can verify my identity and comply with KYC (Know Your Customer) regulations.
+As a **Hospital Registrar**,
+I want to **record emergency contact information for a registered patient**,
+so that **the hospital can quickly reach designated individuals in case of an emergency or for important updates.**
 
 **Acceptance Criteria (Gherkin):**
 
-**Scenario: Successful upload of required identity documents**
-Given I have completed the personal details section
-And I am on the "Upload Identity Documents" step of the application
-And the required documents are clearly specified (e.g., Primary ID, Proof of Address)
-When I select a valid primary ID document file (e.g., passport.jpg)
-And I select a valid proof of address document file (e.g., utility_bill.pdf)
-And I click the "Upload & Continue" button
-Then I should see a confirmation message that my documents have been uploaded successfully
-And I should be navigated to the next application step (e.g., review and submit)
-And the uploaded documents should be securely stored for internal review by bank staff.
+**Scenario: Successfully Adding a Single Emergency Contact**
+*Given* I have successfully registered a patient with "Patient ID P-2023-0001"
+*And* I am on the patient's "Emergency Contact" section of their profile
+*When* I enter the following emergency contact details:
+    *   "Contact Name" as "Jane Doe"
+    *   "Relationship" as "Spouse"
+    *   "Phone Number" as "555-987-6543"
+    *   "Email Address" as "jane.doe@example.com" (optional field)
+*And* I click the "Add Contact" button
+*Then* The emergency contact "Jane Doe" should be saved and associated with "Patient ID P-2023-0001"
+*And* I should see a confirmation message "Emergency contact for John Doe (P-2023-0001) added successfully."
+*And* The new contact should be displayed in a list of emergency contacts for that patient.
 
-**Scenario: Attempt to upload an unsupported file type**
-Given I am on the "Upload Identity Documents" step of the application
-And the accepted file types are clearly stated (e.g., JPG, PNG, PDF)
-When I attempt to upload a file with an unsupported format (e.g., identity.docx)
-Then I should see an error message indicating the file type is not allowed
-And the file should not be uploaded.
-
-**Scenario: Attempt to upload a file exceeding the size limit**
-Given I am on the "Upload Identity Documents" step of the application
-And the maximum file size limit is 5MB per document
-When I attempt to upload a document that is 6MB (e.g., oversized_passport.jpg)
-Then I should see an error message indicating the file exceeds the maximum size
-And the file should not be uploaded.
+**Scenario: Attempt to Add Emergency Contact with Missing Required Information**
+*Given* I have successfully registered a patient with "Patient ID P-2023-0001"
+*And* I am on the patient's "Emergency Contact" section of their profile
+*When* I attempt to add an emergency contact by entering only "Contact Name" as "Jane Doe"
+*And* I intentionally leave "Relationship" and "Phone Number" blank (required fields)
+*And* I click the "Add Contact" button
+*Then* An error message "Relationship is required" should be displayed
+*And* An error message "Phone Number is required" should be displayed
+*And* The emergency contact should not be saved
+*And* The entered "Contact Name" ("Jane Doe") should remain in its field.
