@@ -1,0 +1,71 @@
+Great! As a Product Owner, I'll focus on delivering value to our potential customers and the business. Here are two Agile user stories for an application to open a bank account, complete with Gherkin acceptance criteria:
+
+---
+
+### User Story 1: Submit Personal Details
+
+**User Story:**
+As a potential customer,
+I want to securely submit my personal details (e.g., name, address, date of birth, contact details),
+so that the bank can identify me and begin processing my new account application.
+
+**Acceptance Criteria (Gherkin):**
+
+**Scenario: Successful submission of all mandatory personal details**
+Given I am on the personal details section of the account application
+And all mandatory fields (e.g., Full Name, Date of Birth, Residential Address, Email, Phone Number) are clearly marked
+When I enter valid information into all mandatory fields
+And I click the "Continue" button
+Then I should be navigated to the next step of the application process (e.g., ID verification)
+And my entered personal data should be securely stored for processing.
+
+**Scenario: Attempt to submit with missing mandatory fields**
+Given I am on the personal details section of the account application
+And I have intentionally left a mandatory field (e.g., Residential Address) blank
+When I click the "Continue" button
+Then I should see an inline error message indicating which fields are missing
+And I should remain on the personal details page to correct the errors.
+
+**Scenario: Attempt to submit with invalid data format**
+Given I am on the personal details section of the account application
+When I enter an invalid date of birth (e.g., a future date)
+And I enter an invalid email format (e.g., "myemail.com" without "@")
+And I click the "Continue" button
+Then I should see specific inline error messages for each invalid field (e.g., "Date of birth cannot be in the future", "Please enter a valid email address")
+And I should remain on the personal details page to correct the errors.
+
+---
+
+### User Story 2: Upload Identity Documents
+
+**User Story:**
+As a potential customer,
+I want to securely upload copies of my identity documents (e.g., driver's license, passport, utility bill),
+so that the bank can verify my identity and comply with KYC (Know Your Customer) regulations.
+
+**Acceptance Criteria (Gherkin):**
+
+**Scenario: Successful upload of required identity documents**
+Given I have completed the personal details section
+And I am on the "Upload Identity Documents" step of the application
+And the required documents are clearly specified (e.g., Primary ID, Proof of Address)
+When I select a valid primary ID document file (e.g., passport.jpg)
+And I select a valid proof of address document file (e.g., utility_bill.pdf)
+And I click the "Upload & Continue" button
+Then I should see a confirmation message that my documents have been uploaded successfully
+And I should be navigated to the next application step (e.g., review and submit)
+And the uploaded documents should be securely stored for internal review by bank staff.
+
+**Scenario: Attempt to upload an unsupported file type**
+Given I am on the "Upload Identity Documents" step of the application
+And the accepted file types are clearly stated (e.g., JPG, PNG, PDF)
+When I attempt to upload a file with an unsupported format (e.g., identity.docx)
+Then I should see an error message indicating the file type is not allowed
+And the file should not be uploaded.
+
+**Scenario: Attempt to upload a file exceeding the size limit**
+Given I am on the "Upload Identity Documents" step of the application
+And the maximum file size limit is 5MB per document
+When I attempt to upload a document that is 6MB (e.g., oversized_passport.jpg)
+Then I should see an error message indicating the file exceeds the maximum size
+And the file should not be uploaded.
